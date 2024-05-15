@@ -58,7 +58,7 @@ function   aos_in(context, exten)
 
         callee = channel.CALLERID("num"):get()
 	domen = channel.PJSIP_HEADER('read',"X-DOMEN-2"):get()
-    	channel["CDR(kama-host)"]:set(kama)
+--    	channel["CDR(kama-host)"]:set(kama)
 	channel["CDR(trunk)"]:set(domen)
 	channel["CDR(ari-host)"]:set(getHostname())
 
