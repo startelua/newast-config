@@ -1,3 +1,6 @@
+--package.path = '/opt/lua-nats/src/?.lua;src/?.lua;' .. package.path
+--pcall(require, 'luarocks.require')
+--  string.format("Data for customer %s : %s %s", extension, name, number)
 local nats = require 'nats'
 local cjson = require('cjson')
 
@@ -11,14 +14,19 @@ local params = {
 
 local client_n = nats.connect(params)
 
+--client_n:enable_trace()
 client_n:set_auth('target-user', 'target-pass$')
+
 client_n:connect()
 
 
 local function subscribe_callback(payload)
       app.Verbose(1, "res data ".. payload)
+--      j_data = payload:gsub("'", "\"")
+--      app.Verbose(1,"parse"..j_data)
+--      t = cjson.decode(j_data)
         t = cjson.decode(payload)
---     app.Verbose(1,t.port .." uuid "..t.uuid.." ip "..t.ip)
+     app.Verbose(1,t.port .." uuid "..t.uuid.." ip "..t.ip)
      uuid_aos=t.uuid
      ip_aos=t.ip
      port_aos=t.port
@@ -26,7 +34,7 @@ local function subscribe_callback(payload)
 
 end
 
-
+--local _M = {}
 function getHostname()
     local f = io.popen ("/bin/hostname")
     local hostname = f:read("*a") or ""
@@ -34,6 +42,7 @@ function getHostname()
     hostname =string.gsub(hostname, "\n$", "")
     return hostname
 end
+--return _M
 
 -- Функция для проверки открытости порта
 function isPortOpen(host, port)
@@ -55,22 +64,37 @@ function   aos_in(context, exten)
 	app.noop("a_soc exten:"..exten)
 	uniq = channel.UNIQUEID:get()
 	app.noop(string.format("UNIQUEID: %s",uniq))
-
-        callee = channel.CALLERID("num"):get()
+--
+                callee = channel.CALLERID("num"):get()
+	name = channel.CALLERID("name"):get()
+--    		peername = channel.CHANNEL("peername"):get()
+--		domen = channel.SIP_HEADER("X-DOMEN-2"):get()
 	domen = channel.PJSIP_HEADER('read',"X-DOMEN-2"):get()
+--		domen = "test"
+	app.noop("sip-h  "..domen)
+	kama = channel.PJSIP_HEADER('read',"X-Kam"):get()
     	channel["CDR(kama-host)"]:set(kama)
 	channel["CDR(trunk)"]:set(domen)
 	channel["CDR(ari-host)"]:set(getHostname())
 
             n_in=  channel["DB(Nats/nats_in)"]:get()
-
-                client_n:publish(n_in, '{"unic_id":"'..uniq.. '","from":"'..callee..'","to":"'..exten..'","domen":"'..domen..'","ari_host":"'..channel["CDR(ari-host)"]:get()..'"}')
+--		app.noop("out  :"..n_in)
+--		local pub_st=client_n:publish(n_in, '{"unic_id":"'..uniq.. '"} ')
+	    local socket=require'socket'
+	    st_time=socket.gettime()
+--os.time()
+                client_n:publish(n_in, '{"unic_id":"'..uniq.. '","from":"'..callee..'","to":"'..exten..'","domen":"'..domen..'","ari_host":"'..getHostname()..'"}')
                 local subscribe_id = client_n:subscribe(uniq, subscribe_callback)
                 client_n:wait(1)
-		client_n:unsubscribe(subscribe_id)
+	client_n:unsubscribe(subscribe_id)
 
---        app.Verbose(1, "send" ..subscribe_id)
+        app.Verbose(1, "send" ..subscribe_id)
 	app.Verbose(1, "Extension " .. exten .. " disabled".."  uuid "..uuid_aos .." ip:"..ip_aos.." port ".. port_aos )
+	    end_time=socket.gettime()
+	    all_time=uuid_aos..",IN,"..st_time..","..n_time..","..end_time.."\n"
+	    file = io.open("/var/spool/asterisk/monitor/ast12.csv","a+")
+	    file:write(all_time)
+	    file:close()
 
 	channel["CDR(direction)"]:set("IN")
 	channel.CHANNEL('hangup_handler_push'):set('out_n,s,1')
@@ -87,15 +111,64 @@ function   aos_in(context, exten)
 	    app.hangup(17)
 	end
 
+--[[	    local isOpen, error = isPortOpen(ip_aos, port_aos)
+	    if isOpen then
+	            app.noop("Порт " .. ip_aos .. " открыт.")
+	    else
+	            app.noop("Порт " .. ip_aos .. " закрыт или недоступен. Ошибка: " .. error)
+		end_time=socket.gettime()
+	    all_time=uuid_aos..",IN,"..st_time..","..n_time..","..end_time.."\n"
+	    file = io.open("/var/log/asterisk/ast12s.csv","a+")
+	    file:write(all_time)
+	    file:close()
+
+		app.hangup(17)
+
+	    end
+]]--
+
+	channel["CDR(direction)"]:set("IN")
+	channel.CHANNEL('hangup_handler_push'):set('out_n,s,1')
+
+
 
 	aos_s=string.format('%s,%s:%s', uuid_aos, ip_aos, port_aos)
 	aos_d=string.format('AudioSocket/%s:%s/%s/c(slin192)',ip_aos , port_aos, uuid_aos)
 --		app.Verbose(1,"string "..aos_s)
     	app.wait(6)
                  app.answer()
+--	app.playback("beep")
                 app.AudioSocket(aos_s)
 --		app.dial(aos_d)
+--		app.Verbose(1, string.format("Device name : %s, callee %s", name, callee))
 	app.hangup(34)
+	end;
+
+function   aos_in2(context, exten)
+	app.noop("a_soc exten:"..exten)
+	uniq = channel.UNIQUEID:get()
+	app.noop(string.format("UNIQUEID: %s",uniq))
+
+                callee = channel.CALLERID("num"):get()
+	name = channel.CALLERID("name"):get()
+	domen = channel.PJSIP_HEADER('read',"X-DOMEN-2"):get()
+	app.noop("sip-h  "..domen)
+	kama = channel.PJSIP_HEADER('read',"X-Kam"):get()
+    	channel["CDR(kama-host)"]:set(kama)
+	channel["CDR(trunk)"]:set(domen)
+	channel["CDR(ari-host)"]:set(getHostname())
+	app.noop('"from":"'..callee..'","to":"'..exten..'","domen":"'..domen)
+
+	channel["CDR(direction)"]:set("IN")
+	channel.CHANNEL('hangup_handler_push'):set('out_n,s,1')
+
+	local command= "python3 /etc/asterisk/ar2.py"
+	local p = assert(io.popen(command))
+	local result = p:read("*all")
+	p:close()
+	app.noop("sip id ".. result)
+	app.dial('sip/'..result)
+
 	end;
 
 
@@ -153,9 +226,13 @@ function out(context,exten)
     	    elseif key=='nats_in' then
 		channel["DB(Nats/nats_in)"]:set(value)
 		nats="1"
-	    elseif  key=='nats_out' then
+		--nn=channel["DB(DND/nats)"]:get()
+		--app.noop("db key ".. nn)
+		--	channel["DB(DND/"..cid.."/)"]:get()
+--                         app.noop("key "..key.." val "..value)
+	        elseif  key=='nats_out' then
 	            channel["DB(Nats/nats_out)"]:set(value)
-	            nats="1"
+		nats="1"
 	    end
 	    end
 	    app.noop("b "..b1.."  p1 "..p1)
