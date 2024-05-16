@@ -22,7 +22,7 @@ local function subscribe_callback(payload)
      uuid_aos=t.uuid
      ip_aos=t.ip
      port_aos=t.port
-     n_time=t.unix_time
+--     n_time=t.unix_time
 
 end
 
@@ -52,13 +52,11 @@ end
 
 
 function   aos_in(context, exten)
-	app.noop("a_soc exten:"..exten)
 	uniq = channel.UNIQUEID:get()
-	app.noop(string.format("UNIQUEID: %s",uniq))
+	app.noop(string.format("UNIQUEID: %s  a_soc: %s ",uniq,exten))
 
         callee = channel.CALLERID("num"):get()
 	domen = channel.PJSIP_HEADER('read',"X-DOMEN-2"):get()
---    	channel["CDR(kama-host)"]:set(kama)
 	channel["CDR(trunk)"]:set(domen)
 	channel["CDR(ari-host)"]:set(getHostname())
 
@@ -87,12 +85,12 @@ function   aos_in(context, exten)
 	    app.hangup(17)
 	end
 
-
 	aos_s=string.format('%s,%s:%s', uuid_aos, ip_aos, port_aos)
 	aos_d=string.format('AudioSocket/%s:%s/%s/c(slin192)',ip_aos , port_aos, uuid_aos)
 --		app.Verbose(1,"string "..aos_s)
     	app.wait(6)
                  app.answer()
+app.UserEvent("bridge","unic_id:"..uniq.. ",Socketid:"..uuid_aos ) -- связка uuid 
                 app.AudioSocket(aos_s)
 --		app.dial(aos_d)
 	app.hangup(34)
@@ -191,10 +189,10 @@ extensions = {
 	    app.wait(10)
 	end;
           ["112"] = function(context, exten)
-	app.noop("a_soc exten:"..exten)
-	local socket=require'socket'
-	param_out=channel.param:get()
-	aos_s='s'
+	    app.noop("a_soc exten:"..exten)
+	    local socket=require'socket'
+	    param_out=channel.param:get()	    
+	    aos_s='s'
 		app.noop("out 112 variable : exten".. exten.." param "..param_out)
         	    t = cjson.decode(param_out)
 	    -- Вывод значений из таблицы
@@ -206,14 +204,18 @@ extensions = {
 		     host='2'
 		     uniq_id='1'
 		        for lo, w in pairs(value) do
-		        if  lo == 'port' then
-			port=w
-		        elseif lo == 'uniq_id' then
-			uniq_id=w
-		        elseif lo == 'host' then
-			host=w
-    	                        end
+		    	    if  lo == 'port' then
+				port=w
+		    	    elseif lo == 'uniq_id' then
+				uniq_id=w
+		    	    elseif lo == 'host' then
+				host=w
+    	                    end
 		        end
+		app.noop(string.format("host: %s  port: %s ",host,port))
+		    if port==nil then 
+			    app.exit() --hangup()
+		    end 
 		    aos_s=string.format('%s,%s:%s', uniq_id, host, port)
 		    aos_d=string.format('AudioSocket/%s:%s/%s', host, port, uniq_id)
 		    end
