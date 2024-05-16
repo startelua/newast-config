@@ -96,7 +96,23 @@ app.UserEvent("bridge","unic_id:"..uniq.. ",Socketid:"..uuid_aos ) -- связк
 	app.hangup(34)
 	end;
 
+function aos_in_stasis(context,exten)
+	uniq = channel.UNIQUEID:get()
+	app.noop(string.format("UNIQUEID: %s  a_soc: %s ",uniq,exten))
 
+        callee = channel.CALLERID("num"):get()
+	domen = channel.PJSIP_HEADER('read',"X-DOMEN-2"):get()
+	channel["CDR(trunk)"]:set(domen)
+	channel["CDR(ari-host)"]:set(getHostname())
+	channel["CDR(direction)"]:set("IN")
+	channel.CHANNEL('hangup_handler_push'):set('out_n,s,1')
+
+    str=string.format( '{"unic_id":"%s";"from":"%s";"to":"%s";"domen":"%s";"ari_host":"%s"}',uniq,callee,exten,domen,channel["CDR(ari-host)"]:get())
+                app.noop("str ".. str)
+	app.Stasis("aos_ari",uniq,str)
+
+
+end;
 
 function out(context,exten)
 	app.noop("out variable : exten".. exten.." param "..channel.param:get())
@@ -185,9 +201,21 @@ extensions = {
          ["_+XXXXX."] = aos_in;
      ["service" ] = aos_in;
      ["sub-suf"] = function(context, exten)
-	    app.noop("null string")
+--          ["s"] = function(context, exten)
+	    suf =  channel.ARG1:get()
+	    app.noop("Suff "..suf)
 	    app.wait(10)
+	    app.senddtmf(suf)
+	    app.Return()
 	end;
+     ["bridge"] = function(context, exten)
+	    br_id =  channel.ARG1:get()
+	    app.noop("Brige "..br_id)
+	    app.UserEvent("kill_chan","chan:".. br_id )
+	    app.BridgeAdd(br_id)
+	    app.Return()
+	end;
+
           ["112"] = function(context, exten)
 	    app.noop("a_soc exten:"..exten)
 	    local socket=require'socket'
