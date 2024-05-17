@@ -27,5 +27,5 @@ deploy-job:      # This job runs in the deploy stage.
     - echo "cp -r ./etc/asterisk/* /etc/asterisk"
     - echo "Application successfully deployed."
   tags:
-    - ast-12
+    - ast12
 
