@@ -23,9 +23,9 @@ deploy-job:      # This job runs in the deploy stage.
   stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
   script:
     - echo "Copy config"
-    - ls -l
-    - echo "cp -r ./etc/asterisk/* /etc/asterisk"
+    - cp -r ./etc/asterisk/* /etc/asterisk
     - echo "Application successfully deployed."
+    - /usr/sbin/asterisk -x "core reload"
   tags:
     - ast12
 
