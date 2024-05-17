@@ -116,19 +116,20 @@ end;
 
 function out(context,exten)
 	app.noop("out variable : exten".. exten.." param "..channel.param:get())
-        dial_str="tTo"
-        sip_h=""
-	trunk=""
-	suf=""
-	play=""
-	brige=""
-	nats=""
+        local dial_str="tTo"
+        local sip_h=""
+	local trunk=""
+	local suf=""
+	local play=""
+	local brige=""
+	local nats=""
 	channel["CDR(ari-host)"]:set(getHostname())
 	channel["CDR(direction)"]:set("OUT")
 	channel.CHANNEL('hangup_handler_push'):set('out_n,s,1')
         param=channel.param:get()
-	b1=""
-	p1=""
+	b1="0"
+	p1="0"
+	direction=""
                 t = cjson.decode(param)
 
 	    -- Вывод значений из таблицы
@@ -147,35 +148,21 @@ function out(context,exten)
 	     elseif key=='suf' then
 		suf='U(sub-suf^${'..value..'})'
              elseif key=='play' then
-		if  (b1~=1 or b1~=nil) then
-		app.noop("b1")
---                                play='U(play_f^${'..value..'})'
 		p1=value
-		else
-		app.noop("b2")
---				play='U(play_f^${'..value..'}^${'..b1..'})'
-		end
 	     elseif key=='bridge' then
-		if (p1~="" or p1~=nil) then
-			app.noop("p1"..p1)
-			play= 'U(play_f^'..value..')'
 			b1=value
-		else
-			app.noop("p2")
-			b1=value
-		end
     	    elseif key=='nats_in' then
 		channel["DB(Nats/nats_in)"]:set(value)
 		nats="1"
 	    elseif  key=='nats_out' then
 	        channel["DB(Nats/nats_out)"]:set(value)
 	        nats="1"
-	      end
+	    elseif key=='call_direction' then 
+		direction=value
+	     end
 	    end
 	    app.noop("b "..b1.."  p1 "..p1)
---	    if (b1~="" or p1~="") then
---		play='U(play_f2^'..p1..'^'..b1..')'
---	    end
+
 	    if (sip_h~="") then
 	        sip_hs='b(handler^addheader^1)'
 	        else
@@ -186,6 +173,9 @@ function out(context,exten)
     		app.noop("out :"..channel["DB(Nats/nats_out)"]:get())
     		app.hangup()
 	    end
+	    if (b1~="0" or p1~="0") then  -- Проверка наличия бриджа или файла для проигрывания 
+		    play= 'U(bridge_in^'..direction..'^'..p1..'^'..b1..')'
+	    end 
 	    dail_str='PJsip/'..exten..'@'..trunk..',30,'..dial_str..play..suf..sip_hs
 	    app.noop("d_s"..dail_str)
 	app.dial(dail_str)
@@ -196,6 +186,30 @@ function out(context,exten)
 
 
 extensions = {
+-- Мскросы обработки 
+     bridge_in ={
+	["s"]= function(context, exten)
+	    local direct =  channel.ARG1:get()
+	    local file =  channel.ARG2:get()
+	    local br_id =  channel.ARG3:get()
+	    app.noop("Brige in"..br_id.." File "..file)
+	    if file ~="0" then
+		app.Wait(3)
+		app.Playback(file)
+	    end
+	    if br_id~="0" then 
+		app.UserEvent("kill_chan","chan:".. br_id )
+		if direct =="in" then
+		    app.Bridge(br_id)
+		else 
+		    app.BridgeAdd(br_id)
+		end 
+		app.Return()
+	    end
+	end;
+
+	};
+-- Конец 
     a_soc ={
          ["_XXXXXX."] = aos_in;
          ["_+XXXXX."] = aos_in;
@@ -206,13 +220,6 @@ extensions = {
 	    app.noop("Suff "..suf)
 	    app.wait(10)
 	    app.senddtmf(suf)
-	    app.Return()
-	end;
-     ["bridge"] = function(context, exten)
-	    br_id =  channel.ARG1:get()
-	    app.noop("Brige "..br_id)
-	    app.UserEvent("kill_chan","chan:".. br_id )
-	    app.BridgeAdd(br_id)
 	    app.Return()
 	end;
 
