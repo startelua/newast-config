@@ -134,7 +134,7 @@ function out(context,exten)
 
 	    -- Вывод значений из таблицы
 	    for key, value in pairs(t) do
-	     if key=='sip_h' then
+	     if key=='sip-h' then
 		app.noop("sip_h")
 		if type(value) == "table" then
 		        for l, w in pairs(value) do
@@ -164,7 +164,9 @@ function out(context,exten)
 	    app.noop("b "..b1.."  p1 "..p1)
 
 	    if (sip_h~="") then
-	        sip_hs='b(handler^addheader^1)'
+		out= cjson.encode(sip_h)
+	        sip_hs='b(pjsip_add,1('..out..'))'
+--		sip_hs='b(addheaders,addheader,1(${somevar}))'
 	        else
 	        sip_hs=""
 	    end
@@ -194,8 +196,10 @@ extensions = {
 	    local br_id =  channel.ARG3:get()
 	    app.noop("Brige in"..br_id.." File "..file)
 	    if file ~="0" then
+		app.noop("Noop play file "..file )
 		app.Wait(3)
 		app.Playback(file)
+--		app.MP3Player(file)
 	    end
 	    if br_id~="0" then 
 		app.UserEvent("kill_chan","chan:".. br_id )
@@ -209,6 +213,8 @@ extensions = {
 	end;
 
 	};
+
+
 -- Конец 
     a_soc ={
          ["_XXXXXX."] = aos_in;
@@ -222,6 +228,8 @@ extensions = {
 	    app.senddtmf(suf)
 	    app.Return()
 	end;
+
+
 
           ["112"] = function(context, exten)
 	    app.noop("a_soc exten:"..exten)
@@ -266,14 +274,26 @@ extensions = {
 out_n = {
           ["_XX."] = out;
           ["_+X."] = out;
-          ["pjsip_addheader"] = function (c, e)
-                 json =  channel.ARG1:get()
-                   for key, arg in pairs(json) do
-        --	 app.noop(l, "=", w)
+
+          ["pjsip_add"]  = function (c, e)
+		local trunk=channel["CDR(trunk)"]:get()
+		local json =  channel.ARG1:get()
+		app.noop("pjsip add header "..trunk.. " ARG "..json )
+--[[    	
+        	 local json1 =  channel.ARG2:get()
+		app.noop("arg1 "..json.." arg2 ")
+		t = cjson.decode(json)
+                   for key, arg in pairs(t) do
+        		app.noop(l, "=", w)
                          channel.PJSIP_HEADER("add", key:set(arg))
                    end
-                 return app['return']()
+                 return app['return']()]]--
+
+                         channel.PJSIP_HEADER("add", "sip-X11"):set("1111")
+			 channel.PJSIP_HEADER("add", "sip-X_trunk"):set(trunk)
+                	 app.Return()
                  end;
+
           ["s"] = function(context, exten)
 --             app.noop("h case")
 --             app.NoOp('Hangup Cause='..channel['HANGUPCAUSE']:get().." cdr "..channel["CDR(start)"]:get())
