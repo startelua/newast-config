@@ -130,6 +130,7 @@ function out(context,exten)
 	b1="0"
 	p1="0"
 	direction=""
+	br_id="0"
                 t = cjson.decode(param)
 
 	    -- Вывод значений из таблицы
@@ -159,6 +160,14 @@ function out(context,exten)
 	        nats="1"
 	    elseif key=='call_direction' then 
 		direction=value
+	    elseif key=="bridge_id" then
+		  br_id=value
+		  ch_a=t.channel_a
+		  ch_b=t.channel_b
+		app.noop(" bridge id ".. br_id.. " a " ..ch_a.. " b " ..ch_b)
+		app.Bridge(ch_a)
+--		app.BridgeAdd(ch_a)
+		app.BridgeAdd(ch_b)
 	     end
 	    end
 	    app.noop("b "..b1.."  p1 "..p1)
@@ -267,6 +276,7 @@ extensions = {
 	uniq = channel.UNIQUEID:get()
 	app.noop(string.format("UNIQUEID: %s  aos %s",uniq,aos_s))
     	    app.AudioSocket(aos_s)
+	    app.noop("!!!!!!! end auudio !!!!!!")
 	end;
 
 };
@@ -289,7 +299,7 @@ out_n = {
                    end
                  return app['return']()]]--
 
-                         channel.PJSIP_HEADER("add", "sip-X11"):set("1111")
+                         channel.PJSIP_HEADER("add", "X_ao"):set("1")
 			 channel.PJSIP_HEADER("add", "sip-X_trunk"):set(trunk)
                 	 app.Return()
                  end;
@@ -327,7 +337,7 @@ app.UserEvent("i_trunk","trunk:"..channel["CDR(trunk)"]:get()..",number_a:"..cha
 app.noop(cdr1)
 app.noop(cdr2)
 app.noop(cdr3)
-    client_n:publish('cp_cdr_t',cdr1..cdr2..cdr3)
+    client_n:publish('cp_cdr',cdr1..cdr2..cdr3)
     app.Return()
 
         end;
