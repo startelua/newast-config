@@ -49,6 +49,39 @@ function isPortOpen(host, port)
     end
 end
 
+-- Разбор строки 
+function split(source, sep)
+    local result, i = {}, 1
+    while true do
+        local a, b = source:find(sep)
+        if not a then break end
+        local candidat = source:sub(1, a - 1)
+        if candidat ~= "" then
+            result[i] = candidat
+        end i=i+1
+        source = source:sub(b + 1)
+    end
+    if source ~= "" then
+        result[i] = source
+    end
+    return result
+end
+
+function val(str)
+    local result = split(str, ":")
+    c=0
+    for i, v in ipairs(result) do
+        if c==0 then
+	    key=v
+    	    c=c+1
+	else
+    	    value=v
+	end
+    end
+--    print("key ".. key.. " value "..value)
+    return key,value
+end
+
 
 
 function   aos_in(context, exten)
@@ -62,7 +95,8 @@ function   aos_in(context, exten)
 
             n_in=  channel["DB(Nats/nats_in)"]:get()
 
-                client_n:publish(n_in, '{"unic_id":"'..uniq.. '","from":"'..callee..'","to":"'..exten..'","domen":"'..domen..'","ari_host":"'..channel["CDR(ari-host)"]:get()..'"}')
+        client_n:publish('incoming_call', '{"sm_uuid":"'..n_in..'", "unic_id":"'..uniq.. '","from":"'..callee..'","to":"'..exten..'","domen":"'..domen..'","ari_host":"'..channel["CDR(ari-host)"]:get()..'"}')
+--                client_n:publish(n_in, '{"unic_id":"'..uniq.. '","from":"'..callee..'","to":"'..exten..'","domen":"'..domen..'","ari_host":"'..channel["CDR(ari-host)"]:get()..'"}')
                 local subscribe_id = client_n:subscribe(uniq, subscribe_callback)
                 client_n:wait(1)
 		client_n:unsubscribe(subscribe_id)
@@ -141,8 +175,9 @@ function out(context,exten)
 		        for l, w in pairs(value) do
         		 app.noop(l, "=", w)
     	                    end
-	        end
+	        else 
 	        sip_h=value
+		end 
 	     elseif key=='trunk' then
 		trunk=value
 		channel["CDR(trunk)"]:set(value)
@@ -160,21 +195,13 @@ function out(context,exten)
 	        nats="1"
 	    elseif key=='call_direction' then 
 		direction=value
-	    elseif key=="bridge_id" then
-		  br_id=value
-		  ch_a=t.channel_a
-		  ch_b=t.channel_b
-		app.noop(" bridge id ".. br_id.. " a " ..ch_a.. " b " ..ch_b)
-		app.Bridge(ch_a)
---		app.BridgeAdd(ch_a)
-		app.BridgeAdd(ch_b)
 	     end
 	    end
 	    app.noop("b "..b1.."  p1 "..p1)
 
 	    if (sip_h~="") then
-		out= cjson.encode(sip_h)
-	        sip_hs='b(pjsip_add,1('..out..'))'
+--		out= cjson.encode(sip_h)
+	        sip_hs='b(pjsip_add,1('..sip_h..'))'
 --		sip_hs='b(addheaders,addheader,1(${somevar}))'
 	        else
 	        sip_hs=""
@@ -286,21 +313,15 @@ out_n = {
           ["_+X."] = out;
 
           ["pjsip_add"]  = function (c, e)
-		local trunk=channel["CDR(trunk)"]:get()
 		local json =  channel.ARG1:get()
-		app.noop("pjsip add header "..trunk.. " ARG "..json )
---[[    	
-        	 local json1 =  channel.ARG2:get()
-		app.noop("arg1 "..json.." arg2 ")
-		t = cjson.decode(json)
-                   for key, arg in pairs(t) do
-        		app.noop(l, "=", w)
-                         channel.PJSIP_HEADER("add", key:set(arg))
-                   end
-                 return app['return']()]]--
+		local json2 =  channel.ARG2:get()
+		app.noop("pjsip add header "..json.." " ..json2 )
+		key,value=val(json)
+                         channel.PJSIP_HEADER("add", key):set(value)
+		key,value=val(json2)
+                         channel.PJSIP_HEADER("add", key):set(value)
 
-                         channel.PJSIP_HEADER("add", "X_ao"):set("1")
-			 channel.PJSIP_HEADER("add", "sip-X_trunk"):set(trunk)
+--			 channel.PJSIP_HEADER("add", "X-trunk"):set("be")
                 	 app.Return()
                  end;
 
